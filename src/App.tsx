@@ -1,0 +1,707 @@
+import React, { useState, useEffect, useMemo } from "react";
+import { 
+  Tv, Search, Heart, History, Share2, HelpCircle, Info, ExternalLink, 
+  ChevronRight, Grid, MessageSquare, Filter, Sparkles, X, Play, 
+  Flame, Zap, Check, Globe, HelpCircle as HelpIcon, Bell, Star,
+  Facebook
+} from "lucide-react";
+import { Channel } from "./types";
+import { channelsData, groupNamesBanglaMap } from "./channels";
+import LivePlayer from "./components/LivePlayer";
+import LiveChat from "./components/LiveChat";
+
+export default function App() {
+  // Current playing channel, default to Ananda TV (item 0)
+  const [activeChannel, setActiveChannel] = useState<Channel>(() => {
+    return channelsData[0] || {
+      name: "Ananda TV",
+      logo: "https://s3.aynaott.com/storage/897698f593fc07974fc46881a440733d",
+      group: "Bangla",
+      url: "https://tvsen6.aynaott.com/anandatv/index.m3u8?e=1779283759&u=78be6644-0a65-48ec-81a4-089ac65a2619&token=504b9350b4703116ca4ab20e4013288e"
+    };
+  });
+
+  // Search input & active category tab
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeCategory, setActiveCategory] = useState("All");
+
+  // Favorites state
+  const [favorites, setFavorites] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem("favorites_channels");
+      return saved ? JSON.parse(saved) : ["Ananda TV", "T Sports HD", "Somoy TV Feed"];
+    } catch {
+      return ["Ananda TV"];
+    }
+  });
+
+  // Recent channels state
+  const [recents, setRecents] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem("recent_channels");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // UI state overlays
+  const [theaterMode, setTheaterMode] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [showShortcutModal, setShowShortcutModal] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const [mobileTab, setMobileTab] = useState<"channels" | "chat">("channels");
+  const [logoErrors, setLogoErrors] = useState<Record<string, boolean>>({});
+
+  // Handle Favorites toggle
+  const toggleFavorite = (name: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    let updated: string[];
+    if (favorites.includes(name)) {
+      updated = favorites.filter((f) => f !== name);
+      triggerToast(`Removed ${name} from favorites`);
+    } else {
+      updated = [...favorites, name];
+      triggerToast(`Added ${name} to favorites`);
+    }
+    setFavorites(updated);
+    localStorage.setItem("favorites_channels", JSON.stringify(updated));
+  };
+
+  // Toast Helper
+  const triggerToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage("");
+    }, 3000);
+  };
+
+  // Add channel to recents list
+  const addToRecents = (channel: Channel) => {
+    const name = channel.name;
+    const filtered = recents.filter((r) => r !== name);
+    const updated = [name, ...filtered].slice(0, 10); // Keep max 10
+    setRecents(updated);
+    localStorage.setItem("recent_channels", JSON.stringify(updated));
+  };
+
+  // Load selected channel
+  const selectChannel = (channel: Channel) => {
+    setActiveChannel(channel);
+    addToRecents(channel);
+    // Smooth scroll player back block on mobile
+    const playerEl = document.getElementById("video-player-root");
+    if (playerEl) {
+      playerEl.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  };
+
+  const handleShare = () => {
+    const shareUrl = window.location.href;
+    navigator.clipboard.writeText(shareUrl)
+      .then(() => {
+        setCopied(true);
+        triggerToast("Share link copied to clipboard!");
+        setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(() => {
+        triggerToast("Failed to copy link");
+      });
+  };
+
+  // Dynamic grouping & mapping of groups
+  const groupsList = useMemo(() => {
+    const list = new Set<string>();
+    channelsData.forEach((c) => {
+      if (c.group) list.add(c.group);
+    });
+    return Array.from(list);
+  }, []);
+
+  // Filter channels based on search & category
+  const filteredChannels = useMemo(() => {
+    return channelsData.filter((c) => {
+      const matchesSearch = 
+        c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.group.toLowerCase().includes(searchQuery.toLowerCase());
+
+      if (activeCategory === "All") {
+        return matchesSearch;
+      }
+      if (activeCategory === "Favorites") {
+        return favorites.includes(c.name) && matchesSearch;
+      }
+      if (activeCategory === "Recent") {
+        return recents.includes(c.name) && matchesSearch;
+      }
+      return c.group === activeCategory && matchesSearch;
+    });
+  }, [searchQuery, activeCategory, favorites, recents]);
+
+  // Featured carousel channels (top premium)
+  const featuredChannels = useMemo(() => {
+    return channelsData.filter((c) => 
+      c.name === "T Sports HD" || 
+      c.name === "Ananda TV" || 
+      c.name === "Somoy TV Feed" || 
+      c.name === "Makkah Live"
+    ).slice(0, 3);
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-brand-bg text-[#efeff1] flex flex-col font-sans selection:bg-brand-accent/20 selection:text-brand-accent overflow-x-hidden w-full max-w-full">
+      
+      {/* Toast Alert Popups */}
+      {toastMessage && (
+        <div className="fixed top-20 right-6 z-50 px-4 py-3 bg-brand-sidebar border border-white/15 text-[#efeff1] rounded-lg shadow-xl flex items-center gap-2">
+          <span className="text-xs font-semibold">{toastMessage}</span>
+        </div>
+      )}
+
+      {/* HEADER BAR */}
+      <header className="sticky top-0 z-40 bg-brand-sidebar border-b border-white/10 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between gap-4">
+          
+          {/* Logo Brand with custom banner */}
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-brand-accent flex items-center justify-center shadow shrink-0">
+              <Tv className="w-5.5 h-5.5 text-white" />
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[#efeff1] text-sm sm:text-base font-black tracking-tight uppercase">MorTV</span>
+                <span className="bg-white/10 text-gray-300 text-[8px] sm:text-[9px] uppercase px-1 sm:px-1.5 py-0.5 sm:py-0.5 rounded font-bold tracking-wider animate-pulse">PORTAL</span>
+              </div>
+              <p className="text-[9px] sm:text-[10px] text-gray-400 font-medium tracking-wide leading-none mt-0.5">লাইভ ওটিটি স্ট্রিমিং পোর্টাল</p>
+            </div>
+          </div>
+
+          {/* Search bar inside header desktop */}
+          <div className="hidden md:flex flex-1 max-w-md relative">
+            <div className="absolute inset-y-0 left-3.5 flex items-center pointer-events-none text-gray-500">
+              <Search className="w-4 h-4" />
+            </div>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="লাইভ চ্যানেল বা ক্যাটাগরি খুঁজুন (Search channels...)"
+              className="w-full bg-[#16161f] text-xs text-white placeholder-gray-500 rounded-lg pl-10 pr-4 py-2.5 border border-white/10 focus:border-brand-accent outline-none transition-all focus:bg-[#1a1a24]"
+              id="search-main-header-desktop"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery("")} className="absolute right-3 top-3 text-gray-500 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Right Header controls */}
+          <div className="flex items-center gap-3 shrink-0">
+            {/* Shortcuts Sheet launcher */}
+            <button
+              onClick={() => setShowShortcutModal(true)}
+              className="p-2.5 rounded-lg bg-white/5 hover:bg-white/10 hover:text-brand-accent transition-all text-gray-400"
+              title="Keyboard Shortcuts Guide"
+            >
+              <HelpCircle className="w-5 h-5" />
+            </button>
+
+            {/* Total count badge */}
+            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-brand-sidebar border border-white/10 rounded-lg text-[10px] font-mono font-bold text-brand-accent">
+              <span>{channelsData.length} CHANNELS AVAILABLE</span>
+            </div>
+
+            {/* Live Global status */}
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 border border-white/10 text-gray-300 rounded-lg text-[10px] font-bold">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> <span className="text-[9px] sm:text-[10px]">ONLINE</span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* MOBILE SEARCH BAR */}
+      <div className="block md:hidden px-4 pt-4">
+        <div className="relative">
+          <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-gray-500">
+            <Search className="w-4 h-4" />
+          </div>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="চ্যানেলের নাম লিখুন..."
+            className="w-full bg-[#111] text-xs text-white placeholder-gray-500 rounded-lg pl-9 pr-4 py-2.5 border border-white/10 focus:border-brand-accent outline-none"
+            id="search-mobile-header"
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery("")} className="absolute right-3 top-2.5 text-gray-500">
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* DYNAMIC HERO BANNER FEATURED SLIDER */}
+      {!searchQuery && activeCategory === "All" && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 hidden md:block">
+          <div className="relative bg-[#121216] rounded-xl p-6 md:p-8 border border-white/10 overflow-hidden shadow-md flex flex-col md:flex-row items-center justify-between gap-6">
+
+            <div className="flex-1 space-y-4 text-center md:text-left z-10">
+              {/* Premium featured tag */}
+              <div className="inline-flex items-center gap-1 px-3 py-1 bg-white/5 border border-white/10 text-gray-300 rounded-lg text-[10px] font-bold tracking-wider uppercase">
+                <span>Featured Streams & Entertainment</span>
+              </div>
+              <h2 className="text-[#efeff1] text-2xl md:text-3.5xl font-black tracking-tight leading-tight">
+                MorTV: আনন্দ লাইভ টিভি ও বিনোদন
+              </h2>
+              <p className="text-gray-400 text-xs md:text-sm max-w-xl leading-relaxed">
+                Enjoy seamless playback of your favorite television channels and sports feeds. Powered by a responsive and clean interface crafted for mobile, tablet, and desktop devices!
+              </p>
+              
+              {/* Hot selection clickers */}
+              <div className="flex flex-wrap gap-2.5 justify-center md:justify-start pt-2">
+                {featuredChannels.map((c) => (
+                  <button
+                    key={c.name}
+                    onClick={() => selectChannel(c)}
+                    className="group flex items-center gap-2 px-3.5 py-2 bg-white/5 hover:bg-brand-accent text-[#efeff1] rounded-lg text-xs font-semibold border border-white/5 hover:border-brand-accent transition-all duration-200"
+                  >
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                    <span>{c.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Graphical design representation */}
+            <div className="w-full md:w-auto flex shrink-0 justify-center z-10">
+              <div className="bg-brand-sidebar border border-white/10 p-4 rounded-xl shadow-md flex items-center gap-4 max-w-sm">
+                {activeChannel.logo && !logoErrors[activeChannel.name] ? (
+                  <img
+                    src={activeChannel.logo}
+                    alt={activeChannel.name}
+                    className="w-12 h-12 rounded-lg bg-[#09090b] object-contain border border-white/10 shrink-0"
+                    onError={() => {
+                      setLogoErrors(prev => ({ ...prev, [activeChannel.name]: true }));
+                    }}
+                  />
+                ) : (
+                  <div className="w-12 h-12 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+                    <Tv className="w-6 h-6 text-brand-accent animate-pulse" />
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] text-brand-accent font-bold font-mono tracking-wider uppercase">NOW PLAYING</p>
+                  <p className="text-[#efeff1] text-sm font-bold truncate mt-0.5">{activeChannel.name}</p>
+                  <p className="text-gray-500 text-xs font-medium truncate mt-0.5">{activeChannel.group}</p>
+                </div>
+                <div className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+              </div>
+            </div>
+
+          </div>
+        </section>
+      )}
+
+      {/* MAIN TWO-COLUMN DASHBOARD */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 flex flex-col gap-6 w-full max-w-full overflow-x-hidden" id="main-content-layout">
+        
+        {/* PLAYER & CHAT AREA CONTAINER */}
+        <div className={`grid gap-6 ${theaterMode ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-3"}`}>
+          
+          {/* Player core area */}
+          <div className={`${theaterMode ? "lg:col-span-1" : "lg:col-span-2"} flex flex-col gap-4`}>
+            
+            {/* Live TV Container component */}
+            <LivePlayer 
+              channel={activeChannel} 
+              theaterMode={theaterMode}
+              onToggleTheater={() => setTheaterMode(!theaterMode)}
+            />
+
+            {/* Detailed Channel Info beneath player */}
+            <div className="bg-brand-sidebar border border-white/10 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-sm">
+              <div className="flex items-center gap-4 min-w-0">
+                {activeChannel.logo && !logoErrors[activeChannel.name] ? (
+                  <img
+                    src={activeChannel.logo}
+                    alt={activeChannel.name}
+                    className="w-12 h-12 rounded-lg object-contain bg-black border border-white/10 shrink-0 p-1"
+                    onError={() => {
+                      setLogoErrors(prev => ({ ...prev, [activeChannel.name]: true }));
+                    }}
+                  />
+                ) : (
+                  <div className="w-12 h-12 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+                    <Tv className="w-6 h-6 text-brand-accent" />
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-white text-base md:text-lg font-extrabold truncate">{activeChannel.name}</h3>
+                    <span className="px-2 py-0.5 bg-white/10 border border-white/15 text-gray-300 text-[9px] font-bold rounded uppercase">
+                      {activeChannel.group}
+                    </span>
+                  </div>
+                  <p className="text-gray-400 text-[10px] uppercase font-bold tracking-wider mt-1 text-brand-accent">
+                    লাইভ সম্প্রচার সক্রিয় (Live Streaming Active)
+                  </p>
+                </div>
+              </div>
+
+              {/* Utility actions with responsive full-width behavior */}
+              <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+                {/* Favorites button */}
+                <button
+                  onClick={(e) => toggleFavorite(activeChannel.name, e)}
+                  className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all border ${
+                    favorites.includes(activeChannel.name)
+                      ? "bg-rose-500/20 text-rose-400 border-rose-500/30"
+                      : "bg-white/5 hover:bg-white/10 text-gray-300 border-white/5"
+                  }`}
+                  id="header-toggle-favorite-btn"
+                >
+                  <Heart className={`w-3.5 h-3.5 ${favorites.includes(activeChannel.name) ? "fill-current text-rose-500" : ""}`} />
+                  {favorites.includes(activeChannel.name) ? "বুকমার্ক করা" : "বুকমার্ক করুন"}
+                </button>
+
+                {/* Share stream button */}
+                <button
+                  onClick={handleShare}
+                  className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-brand-accent/10 text-white hover:text-brand-accent transition-all text-xs font-bold border border-white/5"
+                  title="शेয়ার করুন (Copy Portal Link)"
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  <span>শেয়ার</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Mobile Navigation Tabs */}
+            <div className="flex lg:hidden bg-[#121217] border border-white/10 rounded-xl p-1 gap-1" id="mobile-navigation-tabs">
+              <button
+                onClick={() => setMobileTab("channels")}
+                className={`flex-1 py-3 text-center rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                  mobileTab === "channels"
+                    ? "bg-brand-accent text-white shadow-lg"
+                    : "text-gray-400 hover:text-white"
+                }`}
+              >
+                <Tv className="w-4 h-4" />
+                <span>টিভি চ্যানেলসমূহ</span>
+              </button>
+              <button
+                onClick={() => setMobileTab("chat")}
+                className={`flex-1 py-3 text-center rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                  mobileTab === "chat"
+                    ? "bg-brand-accent text-white shadow-lg"
+                    : "text-gray-400 hover:text-white"
+                }`}
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span>লাইভ চ্যাট</span>
+              </button>
+            </div>
+
+          </div>
+
+          {/* Live Chat sidebar column */}
+          <div className={`${theaterMode ? "hidden" : "block"} lg:col-span-1 ${mobileTab === "chat" ? "block w-full h-[450px]" : "hidden lg:block"} h-[500px] lg:h-[530px] xl:h-[570px] flex-shrink-0`}>
+            <LiveChat channelName={activeChannel.name} />
+          </div>
+
+        </div>
+
+        {/* CONTAINER FOR CHANNELS AND FILTERS (Hidden on mobile if chat is open) */}
+        <div className={`${mobileTab === "channels" ? "space-y-6 block" : "hidden lg:block lg:space-y-6"} w-full max-w-full overflow-hidden`}>
+
+        {/* NAVIGATION SELECTION FILTER PILLS */}
+        <section className="space-y-4 w-full max-w-full">
+          <div className="flex items-center justify-between border-b border-white/5 pb-2">
+            <div className="flex items-center gap-2">
+              <Grid className="w-4 h-4 text-brand-accent" />
+              <h2 className="text-[#efeff1] text-base md:text-lg font-black tracking-tight uppercase">চ্যানেল ক্যাটাগরি (TV Category Listing)</h2>
+            </div>
+            
+            <p className="text-xs text-gray-500 font-medium font-mono">{filteredChannels.length} matching streams found</p>
+          </div>
+
+          <div className="w-full max-w-full overflow-x-auto pb-2 flex items-center gap-1.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden touch-pan-x">
+            {/* All channels Category static */}
+            <button
+              onClick={() => setActiveCategory("All")}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0 uppercase tracking-wide flex items-center gap-1.5 ${
+                activeCategory === "All"
+                  ? "bg-gradient-to-r from-brand-accent to-purple-700 text-white shadow-lg shadow-brand-accent/15 border-transparent"
+                  : "bg-white/5 hover:bg-white/10 text-gray-400 border border-white/5"
+              }`}
+            >
+              <Globe className="w-3.5 h-3.5" /> All Channels
+            </button>
+
+            {/* Custom Favorites tab */}
+            <button
+              onClick={() => setActiveCategory("Favorites")}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0 uppercase tracking-wide flex items-center gap-1.5 ${
+                activeCategory === "Favorites"
+                  ? "bg-rose-600 text-white shadow-lg shadow-rose-600/15"
+                  : "bg-white/5 hover:bg-white/10 text-gray-400 border border-white/5"
+              }`}
+            >
+              <Heart className="w-3.5 h-3.5 fill-current" /> বুকমার্ক তালিকার ({favorites.length})
+            </button>
+
+            {/* Custom Recents tab */}
+            <button
+              onClick={() => setActiveCategory("Recent")}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0 uppercase tracking-wide flex items-center gap-1.5 ${
+                activeCategory === "Recent"
+                  ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/15"
+                  : "bg-white/5 hover:bg-white/10 text-gray-400 border border-white/5"
+              }`}
+            >
+              <History className="w-3.5 h-3.5" /> সম্প্রতি পঠিত
+            </button>
+
+            {/* Map groups directly from database list */}
+            {groupsList.map((g) => {
+              const mappedName = groupNamesBanglaMap[g] || g;
+              return (
+                <button
+                  key={g}
+                  onClick={() => setActiveCategory(g)}
+                  className={`px-4 py-2.5 rounded-lg text-xs font-bold transition-all shrink-0 uppercase tracking-wide ${
+                    activeCategory === g
+                      ? "bg-brand-accent text-white"
+                      : "bg-white/5 hover:bg-white/10 text-gray-400 border border-white/5"
+                  } border border-white/10`}
+                >
+                  {mappedName}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* CHANNELS GRID LISTINGS */}
+        <section className="space-y-4">
+          {filteredChannels.length === 0 ? (
+            <div className="bg-brand-sidebar p-12 rounded-lg text-center border border-white/10">
+              <Tv className="w-12 h-12 text-gray-605 mx-auto mb-3" />
+              <p className="text-white font-bold text-base">কোনো চ্যানেল পাওয়া যায়নি!</p>
+              <p className="text-gray-500 text-xs mt-1">Please try modifying your search parameters or check another tab.</p>
+              <button
+                onClick={() => { setSearchQuery(""); setActiveCategory("All"); }}
+                className="mt-4 px-4 py-2 bg-brand-accent text-white rounded-lg text-xs font-semibold transition-all hover:bg-opacity-90"
+              >
+                রিসেট ফিল্টার (Reset Filters)
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 w-full max-w-full">
+              {filteredChannels.map((channel, idx) => {
+                const isActive = activeChannel.name === channel.name;
+                const isFavorite = favorites.includes(channel.name);
+                const hasLogoError = logoErrors[channel.name];
+
+                return (
+                  <div
+                    key={`${channel.name}-${idx}`}
+                    onClick={() => selectChannel(channel)}
+                    className={`group cursor-pointer rounded-lg border p-3 flex flex-col bg-brand-sidebar hover:bg-[#1a1b24] transition-all duration-200 relative min-w-0 w-full ${
+                      isActive 
+                        ? "border-brand-accent bg-brand-accent/5 ring-1 ring-brand-accent"
+                        : "border-white/10 hover:border-gray-500"
+                    }`}
+                  >
+                    
+                    {/* Active highlight overlay */}
+                    {isActive && (
+                      <div className="absolute top-2.5 left-2.5 z-10 px-2 py-0.5 bg-red-600 text-white rounded text-[8px] font-black uppercase tracking-wider flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 bg-white rounded-full" /> PLAYING
+                      </div>
+                    )}
+
+                    {/* Logo Area */}
+                    <div className="w-full aspect-video bg-black/60 rounded-lg mb-3 border border-white/5 group-hover:border-white/10 overflow-hidden relative flex items-center justify-center p-3 transition-colors min-w-0">
+                      {channel.logo && !hasLogoError ? (
+                        <img
+                          src={channel.logo}
+                          alt={channel.name}
+                          className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform"
+                          onError={() => {
+                            setLogoErrors(prev => ({ ...prev, [channel.name]: true }));
+                          }}
+                        />
+                      ) : (
+                        <div className="text-brand-accent font-extrabold text-lg uppercase h-full w-full flex items-center justify-center bg-gray-900/60 rounded-lg font-mono">
+                          {channel.name.charAt(0)}
+                        </div>
+                      )}
+
+                      {/* Small Overlay play indicator */}
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <div className="w-8 h-8 rounded-full bg-brand-accent text-white flex items-center justify-center scale-75 group-hover:scale-100 transition-all duration-200">
+                          <Play className="w-4 h-4 fill-current ml-0.5" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Meta detailed Info */}
+                    <div className="min-w-0 flex-1 flex flex-col justify-between">
+                      <div className="flex items-start justify-between gap-1">
+                        <h4 className="text-[#efeff1] text-xs font-bold leading-snug truncate group-hover:text-brand-accent transition-colors">
+                          {channel.name}
+                        </h4>
+                        
+                        {/* Favorites toggle action overlay */}
+                        <button
+                          onClick={(e) => toggleFavorite(channel.name, e)}
+                          className="text-gray-400 hover:text-rose-500 p-0.5 shrink-0 transition-colors"
+                          title={isFavorite ? "Remove favorite" : "Add favorite"}
+                        >
+                          <Heart className={`w-3.5 h-3.5 ${isFavorite ? "fill-current text-rose-500" : ""}`} />
+                        </button>
+                      </div>
+
+                      {/* Feed metrics */}
+                      <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5 text-[9px] text-gray-400 font-mono">
+                        <span className="truncate uppercase">{channel.group}</span>
+                        <span className="text-gray-500 flex items-center gap-0.5 leading-none shrink-0 font-bold">
+                          1080P HD
+                        </span>
+                      </div>
+                    </div>
+
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        </div>
+
+      </main>
+
+      {/* SHORTCUTS INFO MODAL GUIDE */}
+      {showShortcutModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#121217] border border-white/10 rounded-xl w-full max-w-sm p-6 relative shadow-lg animate-fade-in text-sm">
+            <button
+              onClick={() => setShowShortcutModal(false)}
+              className="absolute top-4 right-4 p-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-all"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center gap-2 mb-4">
+              <HelpCircle className="w-5 h-5 text-brand-accent" />
+              <h3 className="text-white font-black text-base uppercase">কীবোর্ড শর্টকাট গাইড</h3>
+            </div>
+
+            <div className="space-y-3 font-mono text-xs">
+              <div className="flex justify-between pb-2 border-b border-white/5">
+                <span className="text-gray-400">Play / Pause:</span>
+                <kbd className="px-2 py-0.5 bg-white/10 text-brand-accent rounded uppercase">Space</kbd>
+              </div>
+              <div className="flex justify-between pb-2 border-b border-white/5">
+                <span className="text-gray-400">Mute / Unmute:</span>
+                <kbd className="px-2 py-0.5 bg-white/10 text-brand-accent rounded uppercase">M Key</kbd>
+              </div>
+              <div className="flex justify-between pb-2 border-b border-white/5">
+                <span className="text-gray-400">Fullscreen Video:</span>
+                <kbd className="px-2 py-0.5 bg-white/10 text-brand-accent rounded uppercase">F Key</kbd>
+              </div>
+              <div className="flex justify-between pb-2 border-b border-white/5">
+                <span className="text-gray-400">Theater mode:</span>
+                <kbd className="px-2 py-0.5 bg-white/10 text-brand-accent rounded uppercase">T Key</kbd>
+              </div>
+              <div className="flex justify-between pb-2 border-b border-white/5">
+                <span className="text-gray-400">Reconnect Stream:</span>
+                <kbd className="px-2 py-0.5 bg-white/10 text-brand-accent rounded uppercase">R Key</kbd>
+              </div>
+              <div className="flex justify-between pb-2 border-b border-white/5">
+                <span className="text-gray-400">Raise Volume:</span>
+                <kbd className="px-2 py-0.5 bg-white/10 text-brand-accent rounded uppercase">▲ Arrow</kbd>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Lower Volume:</span>
+                <kbd className="px-2 py-0.5 bg-white/10 text-brand-accent rounded uppercase">▼ Arrow</kbd>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowShortcutModal(false)}
+              className="mt-6 w-full py-2.5 bg-brand-accent hover:bg-opacity-90 text-white font-bold rounded-lg text-xs uppercase"
+            >
+              বুঝেছি (Got it)
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* FOOTER DETAIL SECTION */}
+      <footer className="bg-brand-sidebar border-t border-white/10 py-10 mt-12 shrink-0 text-center">
+        <div className="max-w-7xl mx-auto px-4 text-xs text-gray-400 space-y-6">
+          <div className="flex flex-col items-center justify-center gap-2">
+            <div className="flex items-center gap-2 text-[#efeff1] font-extrabold text-base tracking-wider uppercase">
+              <Tv className="w-5 h-5 text-brand-accent" />
+              <span>MorTV Portal</span>
+            </div>
+            <p className="text-gray-400 text-xs max-w-sm">
+              আনন্দ ও বিনোদনের সেরা লাইভ স্ট্রিমিং ওটিটি পোর্টাল।
+            </p>
+          </div>
+
+          {/* Developer Segment */}
+          <div className="max-w-md mx-auto bg-white/[0.02] border border-white/10 rounded-2xl p-4 sm:p-5 shadow-inner">
+            <h4 className="text-brand-accent text-[10px] font-mono font-bold tracking-widest uppercase mb-3">DEVELOPER & CREATOR</h4>
+            <div className="flex flex-col items-center justify-center gap-3">
+              <span className="text-sm font-black text-[#efeff1]">MD Morsalen Islam</span>
+              
+              <div className="flex flex-wrap items-center justify-center gap-2.5 mt-1">
+                {/* Facebook Button */}
+                <a
+                  href="https://www.facebook.com/morsalen0220/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#1877f2]/10 hover:bg-[#1877f2]/20 text-[#1877f2] hover:text-white font-semibold text-xs rounded-lg border border-[#1877f2]/20 transition-all"
+                >
+                  <Facebook className="w-3.5 h-3.5" />
+                  <span>Facebook Profile</span>
+                </a>
+
+                {/* WhatsApp Button */}
+                <a
+                  href="https://wa.me/8801762783339"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 hover:text-white font-semibold text-xs rounded-lg border border-emerald-500/20 transition-all"
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span>WhatsApp: 01762783339</span>
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-4 text-[11px] text-gray-500 font-mono pt-2">
+            <span>MorTV © 2026</span>
+            <span>•</span>
+            <span>STATIC PLAYER WEB CLIENT</span>
+            <span>•</span>
+            <span>NO SIGN-UP REQUIRED</span>
+          </div>
+
+          <p className="text-[10px] text-gray-500 leading-relaxed max-w-xl mx-auto">
+            Disclaimer: This application acts strictly as a customizable player client of public domain m3u8 playlists. All logos and feed assets belong to their respective copyright holders.
+          </p>
+        </div>
+      </footer>
+
+    </div>
+  );
+}

@@ -1,0 +1,6 @@
+{
+  "name": "MorTV",
+  "description": "MorTV - An ultra-responsive premium IPTV Live TV Streaming platform featuring Bangla, Sports, News, Kids, and International channels.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
