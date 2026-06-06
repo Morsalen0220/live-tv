@@ -1,19 +1,20 @@
-# 📺 Live TV
+<div align="center">
+<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
+</div>
 
-A modern web application for streaming live television channels with a clean and responsive user interface.
+# Run and deploy your AI Studio app
 
-## ✨ Features
+This contains everything you need to run your app locally.
 
-- Live TV streaming
-- Responsive design
-- Fast loading
-- User-friendly interface
-- Multiple channel support
+View your app in AI Studio: https://ai.studio/apps/e763fe72-2f7a-41ed-8488-891927b3fe2d
 
-## 🚀 Installation
+## Run Locally
 
-```bash
-git clone https://github.com/Morsalen0220/live-tv.git
-cd live-tv
-npm install
-npm start
+**Prerequisites:**  Node.js
+
+
+1. Install dependencies:
+   `npm install`
+2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+3. Run the app:
+   `npm run dev`

@@ -333,7 +333,7 @@ export default function LivePlayer({ channel, theaterMode, onToggleTheater }: Li
           id="muted-autoplay-hint-banner"
         >
           <VolumeX className="w-4 h-4 animate-pulse" />
-          <span>ট্যাপ করে সাউন্ড অন করুন (Tap to Unmute)</span>
+          <span>Tap to unmute</span>
         </button>
       )}
 
@@ -354,7 +354,7 @@ export default function LivePlayer({ channel, theaterMode, onToggleTheater }: Li
           <div className="w-16 h-16 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center justify-center mb-4">
             <AlertTriangle className="w-8 h-8 text-red-500" />
           </div>
-          <h3 className="text-white font-bold text-lg mb-2">এই চ্যানেলটি সাময়িকভাবে অফলাইন</h3>
+          <h3 className="text-white font-bold text-lg mb-2">This channel is temporarily offline</h3>
           <p className="text-gray-400 max-w-sm text-xs mb-6">
             The stream link for <strong className="text-white">{channel.name}</strong> might have expired or is experiencing temporary buffering. Please try another channel.
           </p>
@@ -363,7 +363,7 @@ export default function LivePlayer({ channel, theaterMode, onToggleTheater }: Li
             className="flex items-center gap-2 px-5 py-2 bg-red-600 hover:bg-red-700 font-bold text-white rounded-lg transition-colors text-sm"
           >
             <RefreshCw className="w-4 h-4" />
-            আবার চেষ্টা করুন (Reconnect)
+            Reconnect
           </button>
         </div>
       )}
@@ -469,7 +469,7 @@ export default function LivePlayer({ channel, theaterMode, onToggleTheater }: Li
             <span className="text-[#9147ff] font-bold flex items-center gap-1">
               <Info className="w-3.5 h-3.5" /> Diagnostics
             </span>
-            <button onClick={() => setShowDiagnostics(false)} className="text-gray-500 hover:text-white">✕</button>
+            <button onClick={() => setShowDiagnostics(false)} className="text-gray-500 hover:text-white">x</button>
           </div>
           <div className="space-y-1.5">
             <div className="flex justify-between">

@@ -25,3 +25,26 @@
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
   background: var(--color-brand-accent);
 }
+
+.category-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(145, 71, 255, 0.75) rgba(255, 255, 255, 0.08);
+}
+
+.category-scrollbar::-webkit-scrollbar {
+  height: 8px;
+}
+
+.category-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 9999px;
+}
+
+.category-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(145, 71, 255, 0.75);
+  border-radius: 9999px;
+}
+
+.category-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--color-brand-accent);
+}
