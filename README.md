@@ -1,20 +1,36 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# 📺 Live TV - Web Application
 
-# Run and deploy your AI Studio app
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node Version](https://img.shields.io/badge/node-%3E%3D18.0.0-green.svg)](https://nodejs.org)
 
-This contains everything you need to run your app locally.
+Live TV holo ekti advanced web application, jar madhyome internet protocol television (IPTV) short streams ebong dynamic `.m3u8` video media directly web browser-e play kora jay.
 
-View your app in AI Studio: https://ai.studio/apps/e763fe72-2f7a-41ed-8488-891927b3fe2d
+---
 
-## Run Locally
+## ✨ Features
 
-**Prerequisites:**  Node.js
+* **⚡ Modern Web Player:** High-quality HLS streaming buffer optimization.
+* **🎨 Responsive UI:** Mobile, Tablet, ebong Desktop browser-e fully responsive view.
+* **📂 Dynamic Playlists:** Node/React ecosystem-er madhyome remote playlist management.
 
+---
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## 🚀 Tech Stack
+
+* **Frontend Framework:**  Next.js
+* **Styling:** Tailwind CSS / Bootstrap
+* **Streaming Library:** Video.js / Hls.js
+
+---
+
+## 🛠️ Getting Started & Installation
+
+Project ti local machine-e setups ebong development environment run korar jonno nicher step gulo sequential follow korun:
+
+### 1. Clone the Repository
+```bash
+git clone [https://github.com/Morsalen0220/live-tv.git](https://github.com/Morsalen0220/live-tv.git)
+cd live-tv
+
+npm install
+npm run dev
