@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo, useRef } from "react";
+﻿import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { 
   Tv, Search, Heart, History, Share2, HelpCircle, Info, ExternalLink, 
   ChevronRight, Grid, List, MessageSquare, Filter, Sparkles, X, Play, 
@@ -10,7 +10,111 @@ import { groupNamesBanglaMap } from "./channels";
 import LivePlayer from "./components/LivePlayer";
 import LiveChat from "./components/LiveChat";
 
-const CHANNEL_BATCH_SIZE = 60;
+const CHANNEL_BATCH_SIZE = 600;
+
+const CATEGORY_ORDER = [
+  "Bangladesh",
+  "India",
+  "Sports",
+  "News",
+  "Movies",
+  "Series",
+  "Entertainment",
+  "Kids",
+  "Music",
+  "Religious",
+  "Documentary",
+  "Education",
+  "Business",
+  "Lifestyle",
+  "Travel",
+  "Comedy",
+  "Culture",
+  "Weather",
+  "Shopping",
+  "Government",
+  "General",
+  "International",
+  "Other",
+];
+
+const COUNTRY_GROUPS = new Set([
+  "albania", "argentina", "austria", "azerbaijan", "belarus", "belgium", "bosnia and herzegovina",
+  "brazil", "bulgaria", "canada", "chile", "china", "costa rica", "croatia", "cyprus", "czech republic",
+  "denmark", "dominican republic", "egypt", "estonia", "faroe islands", "finland", "france", "georgia",
+  "germany", "greece", "greenland", "hong kong", "hungary", "iceland", "indonesia", "iran", "iraq",
+  "ireland", "israel", "italy", "japan", "æ—¥æœ¬ / japan", "korea", "latvia", "lithuania", "luxembourg",
+  "mexico", "moldova", "montenegro", "netherlands", "north macedonia", "norway", "pakistan", "poland",
+  "portugal", "qatar", "romania", "russia", "saudi arabia", "serbia", "slovakia", "slovenia", "spain",
+  "sweden", "switzerland", "taiwan", "turkey", "uk", "ukraine", "united arab emirates", "usa", "venezuela"
+]);
+
+const CATEGORY_GROUPS: Record<string, string[]> = {
+  Bangladesh: [
+    "bangladesh", "bangla", "bangla news", "bangla movies", "bangla music", "indian bangla",
+    "indian bangla news", "kolkata bangla", "kolkata bangla movies", "kolkata bangla music"
+  ],
+  India: ["india", "indian", "hindi"],
+  Sports: ["sports", "live sports", "ipl-2026", "psl-2026", "football world cup 2026"],
+  News: ["news", "international news", "english news", "news (ar)", "news (es)", "information"],
+  Movies: ["movie", "movies", "english movies", "hindi movies", "hindi dabbing movies", "vod italy"],
+  Series: ["series", "web series", "drama"],
+  Kids: ["kids", "kids;public", "animation", "animation;kids", "family"],
+  Music: ["music", "hindi music", "classic;music"],
+  Religious: ["religious", "islamic", "relagion channel"],
+  Documentary: ["documentary", "documentaries (en)", "science", "infotainment"],
+  Education: ["education", "educational"],
+  Business: ["business"],
+  Lifestyle: ["lifestyle", "cooking", "auto", "relax"],
+  Travel: ["travel", "outdoor"],
+  Comedy: ["comedy", "classic"],
+  Culture: ["culture"],
+  Weather: ["weather", "public;weather"],
+  Shopping: ["shop"],
+  Government: ["legislative", "public", "general;public"],
+  General: ["general", "channels", "latest"],
+  Other: ["other", "others", "undefined", "imported"],
+};
+
+const inferCategoryFromName = (name = "") => {
+  const normalizedName = name.toLowerCase();
+
+  if (/\b(news|noticias|cnn|bbc|al jazeera|nbc|sky news|somoy|jamuna|ekattor)\b/.test(normalizedName)) return "News";
+  if (/\b(sport|sports|cricket|football|soccer|tennis|golf|racing|espn|ipl|psl)\b/.test(normalizedName)) return "Sports";
+  if (/\b(movie|movies|cinema|film|films|bollywood|hollywood)\b/.test(normalizedName)) return "Movies";
+  if (/\b(series|drama|serial)\b/.test(normalizedName)) return "Series";
+  if (/\b(kids|kid|cartoon|baby|junior|animation|anime)\b/.test(normalizedName)) return "Kids";
+  if (/\b(music|radio|hits|songs|tarab)\b/.test(normalizedName)) return "Music";
+  if (/\b(islam|islamic|quran|makkah|madinah|religion|religious|gospel)\b/.test(normalizedName)) return "Religious";
+  if (/\b(weather|accuweather)\b/.test(normalizedName)) return "Weather";
+  if (/\b(business|finance|market|bloomberg)\b/.test(normalizedName)) return "Business";
+  if (/\b(documentary|science|history|nature|wild|discovery)\b/.test(normalizedName)) return "Documentary";
+  if (/\b(education|school|learn|classroom)\b/.test(normalizedName)) return "Education";
+  if (/\b(cooking|food|travel|outdoor|lifestyle|fashion|home)\b/.test(normalizedName)) return "Lifestyle";
+
+  return "";
+};
+
+const getChannelCategory = (group = "Undefined", name = "") => {
+  const normalizedGroup = (group || "Undefined").trim().toLowerCase();
+  const tokens = normalizedGroup.split(";").map((part) => part.trim()).filter(Boolean);
+  const matchedCategory = Object.entries(CATEGORY_GROUPS).find(([, groups]) =>
+    groups.some((categoryGroup) => {
+      const normalizedCategoryGroup = categoryGroup.toLowerCase();
+      return normalizedGroup === normalizedCategoryGroup || tokens.includes(normalizedCategoryGroup);
+    })
+  );
+
+  const nameCategory = inferCategoryFromName(name);
+  if (matchedCategory) {
+    const category = matchedCategory[0];
+    if (["General", "Other"].includes(category) && nameCategory) return nameCategory;
+    return category;
+  }
+  if (COUNTRY_GROUPS.has(normalizedGroup)) return "International";
+
+  return nameCategory || "Other";
+};
 const FALLBACK_CHANNEL: Channel = {
   name: "Ananda TV",
   logo: "https://s3.aynaott.com/storage/897698f593fc07974fc46881a440733d",
@@ -176,12 +280,15 @@ export default function App() {
   const groupsList = useMemo(() => {
     const list = new Set<string>();
     channelsData.forEach((c) => {
-      if (c.group) list.add(c.group);
+      list.add(getChannelCategory(c.group, c.name));
     });
 
     return Array.from(list).sort((a, b) => {
-      if (a === "Bangladesh") return -1;
-      if (b === "Bangladesh") return 1;
+      const orderA = CATEGORY_ORDER.indexOf(a);
+      const orderB = CATEGORY_ORDER.indexOf(b);
+      if (orderA !== -1 || orderB !== -1) {
+        return (orderA === -1 ? 999 : orderA) - (orderB === -1 ? 999 : orderB);
+      }
       const nameA = (groupNamesBanglaMap[a] || a).toLowerCase();
       const nameB = (groupNamesBanglaMap[b] || b).toLowerCase();
       return nameA.localeCompare(nameB, "bn");
@@ -190,7 +297,8 @@ export default function App() {
 
   const channelCountsByGroup = useMemo(() => {
     return channelsData.reduce<Record<string, number>>((counts, channel) => {
-      counts[channel.group] = (counts[channel.group] || 0) + 1;
+      const category = getChannelCategory(channel.group, channel.name);
+      counts[category] = (counts[category] || 0) + 1;
       return counts;
     }, {});
   }, [channelsData]);
@@ -198,9 +306,12 @@ export default function App() {
   // Filter channels based on search & category
   const filteredChannels = useMemo(() => {
     return channelsData.filter((c) => {
+      const category = getChannelCategory(c.group, c.name);
       const matchesSearch = 
         c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        c.group.toLowerCase().includes(searchQuery.toLowerCase());
+        c.group.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (groupNamesBanglaMap[category] || "").toLowerCase().includes(searchQuery.toLowerCase());
 
       if (activeCategory === "All") {
         return matchesSearch;
@@ -211,7 +322,7 @@ export default function App() {
       if (activeCategory === "Recent") {
         return recents.includes(c.name) && matchesSearch;
       }
-      return c.group === activeCategory && matchesSearch;
+      return category === activeCategory && matchesSearch;
     });
   }, [channelsData, searchQuery, activeCategory, favorites, recents]);
 
@@ -221,6 +332,10 @@ export default function App() {
 
   const hasMoreChannels = visibleChannelCount < filteredChannels.length;
 
+  const loadMoreChannels = useCallback(() => {
+    setVisibleChannelCount((count) => Math.min(count + CHANNEL_BATCH_SIZE, filteredChannels.length));
+  }, [filteredChannels.length]);
+
   const groupedFilteredChannels = useMemo(() => {
     if (activeCategory !== "All" || searchQuery) {
       return [{ group: activeCategory, channels: visibleFilteredChannels }];
@@ -229,7 +344,7 @@ export default function App() {
     return groupsList
       .map((group) => ({
         group,
-        channels: visibleFilteredChannels.filter((channel) => channel.group === group),
+        channels: visibleFilteredChannels.filter((channel) => getChannelCategory(channel.group, channel.name) === group),
       }))
       .filter((section) => section.channels.length > 0);
   }, [activeCategory, groupsList, searchQuery, visibleFilteredChannels]);
@@ -245,15 +360,30 @@ export default function App() {
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          setVisibleChannelCount((count) => Math.min(count + CHANNEL_BATCH_SIZE, filteredChannels.length));
+          loadMoreChannels();
         }
       },
-      { rootMargin: "500px 0px" }
+      { rootMargin: "1200px 0px" }
     );
 
     observer.observe(target);
     return () => observer.disconnect();
-  }, [filteredChannels.length, hasMoreChannels]);
+  }, [filteredChannels.length, hasMoreChannels, loadMoreChannels, visibleChannelCount]);
+
+  useEffect(() => {
+    if (!hasMoreChannels) return;
+
+    const handleScroll = () => {
+      const distanceToBottom = document.documentElement.scrollHeight - window.innerHeight - window.scrollY;
+      if (distanceToBottom < 1200) {
+        loadMoreChannels();
+      }
+    };
+
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [hasMoreChannels, loadMoreChannels, visibleChannelCount]);
 
   // Featured carousel channels (top premium)
   const featuredChannels = useMemo(() => {
@@ -670,7 +800,7 @@ export default function App() {
                         </h3>
                       </div>
                       <span className="text-[10px] font-mono font-bold text-gray-500 shrink-0">
-                        {section.channels.length} channels
+                        {channelCountsByGroup[section.group] || section.channels.length} channels
                       </span>
                     </div>
                   )}
@@ -821,7 +951,7 @@ export default function App() {
                 <div ref={loadMoreRef} className="flex flex-col items-center justify-center gap-3 py-6">
                   <div className="w-8 h-8 border-4 border-[#9147ff]/20 border-t-[#9147ff] rounded-full animate-spin" />
                   <button
-                    onClick={() => setVisibleChannelCount((count) => Math.min(count + CHANNEL_BATCH_SIZE, filteredChannels.length))}
+                    onClick={loadMoreChannels}
                     className="px-4 py-2 rounded-lg bg-white/5 hover:bg-brand-accent text-white border border-white/10 text-xs font-bold transition-all"
                   >
                     Load more channels
@@ -897,6 +1027,7 @@ export default function App() {
       )}
 
       {/* FOOTER DETAIL SECTION */}
+      {!hasMoreChannels && (
       <footer className="bg-brand-sidebar border-t border-white/10 py-10 mt-12 shrink-0 text-center">
         <div className="max-w-7xl mx-auto px-4 text-xs text-gray-400 space-y-6">
           <div className="flex flex-col items-center justify-center gap-2">
@@ -954,8 +1085,8 @@ export default function App() {
           </p>
         </div>
       </footer>
+      )}
 
     </div>
   );
 }
-
